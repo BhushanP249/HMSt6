@@ -1,0 +1,864 @@
+# Hospital Management System - Business Requirements Document (BRD)
+
+## 1. Executive Summary
+
+### 1.1 Project Overview
+A comprehensive Hospital Management System REST API built with Spring Boot that manages core hospital operations including patient registration, doctor management, appointment scheduling, billing, and insurance processing.
+
+### 1.2 Purpose
+To demonstrate Windsurf Cascade capabilities by building a fully functional, production-ready REST API with professional architecture, proper entity relationships, validation, and comprehensive endpoints.
+
+### 1.3 Technology Stack
+- **Framework**: Spring Boot 3.x
+- **Database**: H2 (in-memory for POC)
+- **ORM**: Spring Data JPA
+- **Validation**: Spring Boot Validation
+- **Build Tool**: Maven
+- **Java Version**: 17+
+
+---
+
+## 2. System Architecture
+
+### 2.1 Layered Architecture
+```
+┌─────────────────────────────────────┐
+│     Controller Layer (REST APIs)    │
+├─────────────────────────────────────┤
+│       Service Layer (Business)      │
+├─────────────────────────────────────┤
+│    Repository Layer (Data Access)   │
+├─────────────────────────────────────┤
+│       Entity Layer (Domain Model)   │
+├─────────────────────────────────────┤
+│         H2 Database (Storage)       │
+└─────────────────────────────────────┘
+```
+
+### 2.2 Package Structure
+```
+com.hospital.management
+├── entity/              # Domain models with JPA annotations
+├── repository/          # Spring Data JPA repositories
+├── service/            # Business logic layer
+├── controller/         # REST API endpoints
+├── dto/                # Data Transfer Objects
+├── exception/          # Custom exceptions & error handling
+└── config/             # Configuration classes
+```
+
+---
+
+## 3. Entity Models & Relationships
+
+### 3.1 Patient Entity
+**Purpose**: Represents a patient in the hospital system
+
+**Fields**:
+- `id` (Long, Primary Key, Auto-generated)
+- `firstName` (String, Required, Not Blank)
+- `lastName` (String, Required, Not Blank)
+- `dateOfBirth` (LocalDate, Required)
+- `gender` (String, Required - Male/Female/Other)
+- `phoneNumber` (String, Required, Validated Pattern)
+- `email` (String, Email Validated)
+- `address` (String, Required, Max 500 chars)
+- `bloodGroup` (String - A+, A-, B+, B-, O+, O-, AB+, AB-)
+- `medicalHistory` (String, Max 1000 chars)
+- `allergies` (String, Max 500 chars)
+- `emergencyContactName` (String, Max 500 chars)
+- `emergencyContactPhone` (String, Max 20 chars)
+- `registrationDate` (LocalDate, Auto-set on creation)
+- `active` (Boolean, Default: true)
+
+**Relationships**:
+- One-to-Many with Appointments (patient can have multiple appointments)
+- One-to-Many with Bills (patient can have multiple bills)
+- One-to-One with Insurance (patient can have one insurance policy)
+
+---
+
+### 3.2 Doctor Entity
+**Purpose**: Represents medical practitioners
+
+**Fields**:
+- `id` (Long, Primary Key, Auto-generated)
+- `firstName` (String, Required, Not Blank)
+- `lastName` (String, Required, Not Blank)
+- `specialization` (String, Required - Cardiology, Neurology, Orthopedics, Pediatrics, etc.)
+- `licenseNumber` (String, Required, Unique)
+- `phoneNumber` (String, Required)
+- `email` (String, Email Validated)
+- `yearsOfExperience` (Integer, Min: 0)
+- `qualification` (String, Required, Max 500 chars)
+- `department` (String - Emergency, ICU, OPD, Surgery, etc.)
+- `consultationHours` (String, Max 500 chars - "Mon-Fri: 9AM-5PM")
+- `consultationFee` (Double, Min: 0.0)
+- `joiningDate` (LocalDate, Auto-set on creation)
+- `available` (Boolean, Default: true)
+
+**Relationships**:
+- One-to-Many with Appointments (doctor can have multiple appointments)
+
+---
+
+### 3.3 Appointment Entity
+**Purpose**: Manages patient-doctor appointments
+
+**Fields**:
+- `id` (Long, Primary Key, Auto-generated)
+- `patient` (Many-to-One with Patient, Required)
+- `doctor` (Many-to-One with Doctor, Required)
+- `appointmentDateTime` (LocalDateTime, Required)
+- `reason` (String, Required, Max 500 chars)
+- `status` (Enum: SCHEDULED, CONFIRMED, IN_PROGRESS, COMPLETED, CANCELLED, NO_SHOW)
+- `notes` (String, Max 1000 chars)
+- `diagnosis` (String, Max 1000 chars)
+- `prescription` (String, Max 1000 chars)
+- `createdAt` (LocalDateTime, Auto-set)
+- `updatedAt` (LocalDateTime, Auto-updated)
+
+**Relationships**:
+- Many-to-One with Patient
+- Many-to-One with Doctor
+- One-to-One with Bill (optional)
+
+---
+
+### 3.4 Bill Entity
+**Purpose**: Manages financial transactions and billing
+
+**Fields**:
+- `id` (Long, Primary Key, Auto-generated)
+- `patient` (Many-to-One with Patient, Required)
+- `appointment` (One-to-One with Appointment, Optional)
+- `billNumber` (String, Required, Unique)
+- `billDate` (LocalDate, Required)
+- `totalAmount` (Double, Required, Min: 0.0)
+- `discount` (Double, Default: 0.0, Min: 0.0)
+- `tax` (Double, Default: 0.0, Min: 0.0)
+- `netAmount` (Double, Calculated: totalAmount - discount + tax)
+- `paidAmount` (Double, Default: 0.0, Min: 0.0)
+- `balanceAmount` (Double, Calculated: netAmount - paidAmount)
+- `paymentStatus` (Enum: PENDING, PARTIAL, PAID, OVERDUE, CANCELLED)
+- `paymentMethod` (String - Cash, Card, Insurance, UPI, etc.)
+- `description` (String, Max 1000 chars)
+- `insuranceClaim` (String, Max 500 chars)
+- `dueDate` (LocalDate, Default: 30 days from billDate)
+
+**Relationships**:
+- Many-to-One with Patient
+- One-to-One with Appointment
+
+**Business Logic**:
+- Auto-calculate netAmount and balanceAmount
+- Auto-update paymentStatus based on paidAmount
+
+---
+
+### 3.5 Insurance Entity
+**Purpose**: Manages patient insurance policies
+
+**Fields**:
+- `id` (Long, Primary Key, Auto-generated)
+- `patient` (One-to-One with Patient, Required, Unique)
+- `provider` (String, Required - Company name)
+- `policyNumber` (String, Required, Unique)
+- `startDate` (LocalDate, Required)
+- `endDate` (LocalDate, Required)
+- `coverageType` (String, Required - Individual, Family, Corporate, etc.)
+- `coverageAmount` (Double, Min: 0.0)
+- `premiumAmount` (Double, Min: 0.0)
+- `paymentFrequency` (String - Monthly, Quarterly, Annually)
+- `coPayAmount` (Double, Min: 0.0)
+- `deductibleAmount` (Double, Min: 0.0)
+- `coverageDetails` (String, Max 1000 chars)
+- `exclusions` (String, Max 500 chars)
+- `active` (Boolean, Default: true)
+- `status` (Enum: ACTIVE, EXPIRED, CANCELLED, SUSPENDED, PENDING)
+
+**Relationships**:
+- One-to-One with Patient
+
+**Business Logic**:
+- Auto-update status based on dates (EXPIRED if endDate passed)
+
+---
+
+## 4. REST API Endpoints
+
+### 4.1 Patient Management APIs
+
+#### Base Path: `/api/patients`
+
+| Method | Endpoint | Description | Request Body | Response |
+|--------|----------|-------------|--------------|----------|
+| POST | `/` | Create new patient | PatientDTO | 201 Created + Patient |
+| GET | `/` | Get all patients | - | 200 OK + List<Patient> |
+| GET | `/{id}` | Get patient by ID | - | 200 OK + Patient |
+| PUT | `/{id}` | Update patient | PatientDTO | 200 OK + Patient |
+| DELETE | `/{id}` | Delete patient | - | 204 No Content |
+| GET | `/search` | Search by name | ?name=John | 200 OK + List<Patient> |
+| GET | `/blood-group/{group}` | Find by blood group | - | 200 OK + List<Patient> |
+| GET | `/active` | Get active patients | - | 200 OK + List<Patient> |
+| GET | `/{id}/appointments` | Get patient appointments | - | 200 OK + List<Appointment> |
+| GET | `/{id}/bills` | Get patient bills | - | 200 OK + List<Bill> |
+| GET | `/{id}/insurance` | Get patient insurance | - | 200 OK + Insurance |
+
+---
+
+### 4.2 Doctor Management APIs
+
+#### Base Path: `/api/doctors`
+
+| Method | Endpoint | Description | Request Body | Response |
+|--------|----------|-------------|--------------|----------|
+| POST | `/` | Create new doctor | DoctorDTO | 201 Created + Doctor |
+| GET | `/` | Get all doctors | - | 200 OK + List<Doctor> |
+| GET | `/{id}` | Get doctor by ID | - | 200 OK + Doctor |
+| PUT | `/{id}` | Update doctor | DoctorDTO | 200 OK + Doctor |
+| DELETE | `/{id}` | Delete doctor | - | 204 No Content |
+| GET | `/specialization/{spec}` | Find by specialization | - | 200 OK + List<Doctor> |
+| GET | `/department/{dept}` | Find by department | - | 200 OK + List<Doctor> |
+| GET | `/available` | Get available doctors | - | 200 OK + List<Doctor> |
+| GET | `/{id}/appointments` | Get doctor appointments | - | 200 OK + List<Appointment> |
+| PATCH | `/{id}/availability` | Toggle availability | - | 200 OK + Doctor |
+
+---
+
+### 4.3 Appointment Management APIs
+
+#### Base Path: `/api/appointments`
+
+| Method | Endpoint | Description | Request Body | Response |
+|--------|----------|-------------|--------------|----------|
+| POST | `/` | Create appointment | AppointmentDTO | 201 Created + Appointment |
+| GET | `/` | Get all appointments | - | 200 OK + List<Appointment> |
+| GET | `/{id}` | Get appointment by ID | - | 200 OK + Appointment |
+| PUT | `/{id}` | Update appointment | AppointmentDTO | 200 OK + Appointment |
+| DELETE | `/{id}` | Cancel appointment | - | 204 No Content |
+| GET | `/patient/{patientId}` | Get by patient | - | 200 OK + List<Appointment> |
+| GET | `/doctor/{doctorId}` | Get by doctor | - | 200 OK + List<Appointment> |
+| GET | `/status/{status}` | Get by status | - | 200 OK + List<Appointment> |
+| GET | `/date-range` | Get by date range | ?start=&end= | 200 OK + List<Appointment> |
+| PATCH | `/{id}/status` | Update status | {status} | 200 OK + Appointment |
+| PATCH | `/{id}/complete` | Complete appointment | {diagnosis, prescription} | 200 OK + Appointment |
+
+---
+
+### 4.4 Bill Management APIs
+
+#### Base Path: `/api/bills`
+
+| Method | Endpoint | Description | Request Body | Response |
+|--------|----------|-------------|--------------|----------|
+| POST | `/` | Create new bill | BillDTO | 201 Created + Bill |
+| GET | `/` | Get all bills | - | 200 OK + List<Bill> |
+| GET | `/{id}` | Get bill by ID | - | 200 OK + Bill |
+| PUT | `/{id}` | Update bill | BillDTO | 200 OK + Bill |
+| DELETE | `/{id}` | Delete bill | - | 204 No Content |
+| GET | `/patient/{patientId}` | Get patient bills | - | 200 OK + List<Bill> |
+| GET | `/status/{status}` | Get by payment status | - | 200 OK + List<Bill> |
+| GET | `/overdue` | Get overdue bills | - | 200 OK + List<Bill> |
+| GET | `/date-range` | Get by date range | ?start=&end= | 200 OK + List<Bill> |
+| PATCH | `/{id}/payment` | Record payment | {amount, method} | 200 OK + Bill |
+| GET | `/number/{billNumber}` | Get by bill number | - | 200 OK + Bill |
+
+---
+
+### 4.5 Insurance Management APIs
+
+#### Base Path: `/api/insurance`
+
+| Method | Endpoint | Description | Request Body | Response |
+|--------|----------|-------------|--------------|----------|
+| POST | `/` | Create insurance policy | InsuranceDTO | 201 Created + Insurance |
+| GET | `/` | Get all policies | - | 200 OK + List<Insurance> |
+| GET | `/{id}` | Get policy by ID | - | 200 OK + Insurance |
+| PUT | `/{id}` | Update policy | InsuranceDTO | 200 OK + Insurance |
+| DELETE | `/{id}` | Delete policy | - | 204 No Content |
+| GET | `/patient/{patientId}` | Get by patient | - | 200 OK + Insurance |
+| GET | `/provider/{provider}` | Get by provider | - | 200 OK + List<Insurance> |
+| GET | `/active` | Get active policies | - | 200 OK + List<Insurance> |
+| GET | `/expiring` | Get expiring soon | ?days=30 | 200 OK + List<Insurance> |
+| PATCH | `/{id}/renew` | Renew policy | {endDate} | 200 OK + Insurance |
+
+---
+
+## 5. Data Transfer Objects (DTOs)
+
+### 5.1 PatientDTO
+```java
+{
+  "firstName": "string",
+  "lastName": "string",
+  "dateOfBirth": "2000-01-15",
+  "gender": "Male",
+  "phoneNumber": "+919876543210",
+  "email": "john.doe@email.com",
+  "address": "123 Main Street, Mumbai",
+  "bloodGroup": "O+",
+  "medicalHistory": "Previous surgeries...",
+  "allergies": "Penicillin",
+  "emergencyContactName": "Jane Doe",
+  "emergencyContactPhone": "+919876543211"
+}
+```
+
+### 5.2 DoctorDTO
+```java
+{
+  "firstName": "string",
+  "lastName": "string",
+  "specialization": "Cardiology",
+  "licenseNumber": "MED123456",
+  "phoneNumber": "+919876543220",
+  "email": "dr.smith@hospital.com",
+  "yearsOfExperience": 15,
+  "qualification": "MBBS, MD (Cardiology)",
+  "department": "Cardiology",
+  "consultationHours": "Mon-Fri: 9AM-5PM",
+  "consultationFee": 1500.00
+}
+```
+
+### 5.3 AppointmentDTO
+```java
+{
+  "patientId": 1,
+  "doctorId": 1,
+  "appointmentDateTime": "2025-11-20T10:00:00",
+  "reason": "Regular checkup",
+  "notes": "Patient complains of chest pain"
+}
+```
+
+### 5.4 BillDTO
+```java
+{
+  "patientId": 1,
+  "appointmentId": 1,
+  "billNumber": "BILL-2025-001",
+  "totalAmount": 5000.00,
+  "discount": 500.00,
+  "tax": 450.00,
+  "description": "Consultation and tests",
+  "paymentMethod": "Card"
+}
+```
+
+### 5.5 InsuranceDTO
+```java
+{
+  "patientId": 1,
+  "provider": "Star Health Insurance",
+  "policyNumber": "POL123456789",
+  "startDate": "2025-01-01",
+  "endDate": "2026-01-01",
+  "coverageType": "Individual",
+  "coverageAmount": 500000.00,
+  "premiumAmount": 15000.00,
+  "paymentFrequency": "Annually",
+  "coPayAmount": 1000.00,
+  "deductibleAmount": 5000.00,
+  "coverageDetails": "Full coverage for hospitalization"
+}
+```
+
+---
+
+## 6. Validation Requirements
+
+### 6.1 Patient Validation
+- firstName, lastName: Not blank
+- dateOfBirth: Not null, must be in past
+- gender: Not blank, valid values
+- phoneNumber: Valid phone format (regex pattern)
+- email: Valid email format
+- address: Not blank, max 500 chars
+
+### 6.2 Doctor Validation
+- firstName, lastName: Not blank
+- specialization: Not blank
+- licenseNumber: Not blank, unique
+- yearsOfExperience: >= 0
+- consultationFee: >= 0
+
+### 6.3 Appointment Validation
+- patientId, doctorId: Required, must exist
+- appointmentDateTime: Not null, future date/time
+- reason: Not blank
+- status: Valid enum value
+
+### 6.4 Bill Validation
+- patientId: Required, must exist
+- billNumber: Not blank, unique
+- totalAmount: >= 0, not null
+- discount, tax: >= 0
+- All amounts validated
+
+### 6.5 Insurance Validation
+- patientId: Required, must exist, unique
+- provider: Not blank
+- policyNumber: Not blank, unique
+- startDate, endDate: Not null, endDate > startDate
+- All amounts: >= 0
+
+---
+
+## 7. Exception Handling
+
+### 7.1 Custom Exceptions
+- `ResourceNotFoundException`: When entity not found (404)
+- `DuplicateResourceException`: When unique constraint violated (409)
+- `ValidationException`: When validation fails (400)
+- `BusinessException`: For business rule violations (400)
+
+### 7.2 Error Response Format
+```json
+{
+  "timestamp": "2025-11-17T10:30:00",
+  "status": 404,
+  "error": "Not Found",
+  "message": "Patient with ID 100 not found",
+  "path": "/api/patients/100"
+}
+```
+
+### 7.3 Global Exception Handler
+- Handle all exceptions centrally
+- Return consistent error responses
+- Log errors appropriately
+- Handle validation errors with field-level details
+
+---
+
+## 8. Application Configuration
+
+### 8.1 application.properties
+```properties
+# Application
+spring.application.name=hospital-management-system
+server.port=8080
+
+# H2 Database
+spring.datasource.url=jdbc:h2:mem:hospitaldb
+spring.datasource.driverClassName=org.h2.Driver
+spring.datasource.username=sa
+spring.datasource.password=
+
+# JPA/Hibernate
+spring.jpa.database-platform=org.hibernate.dialect.H2Dialect
+spring.jpa.hibernate.ddl-auto=create-drop
+spring.jpa.show-sql=true
+spring.jpa.properties.hibernate.format_sql=true
+
+# H2 Console
+spring.h2.console.enabled=true
+spring.h2.console.path=/h2-console
+
+# Logging
+logging.level.com.hospital.management=DEBUG
+logging.level.org.hibernate.SQL=DEBUG
+```
+
+---
+
+## 9. Sample Data for Testing
+
+### 9.1 Initial Data Requirements
+Create a `DataInitializer` component that loads sample data on startup:
+
+**Patients**: 10 sample patients
+- Mix of different blood groups
+- Various ages and genders
+- Some with medical history
+- 5 with insurance policies
+
+**Doctors**: 8 sample doctors
+- Different specializations (Cardiology, Neurology, Orthopedics, Pediatrics, General Medicine)
+- Different departments
+- Various experience levels
+- All initially available
+
+**Appointments**: 15 sample appointments
+- Different statuses (Scheduled, Confirmed, Completed, Cancelled)
+- Spread across past and future dates
+- Mix of different doctors and patients
+- Some completed with diagnosis and prescription
+
+**Bills**: 10 sample bills
+- Different payment statuses
+- Some linked to appointments
+- Some with insurance claims
+- Mix of paid, partial, and pending
+
+**Insurance**: 5 sample policies
+- Different providers
+- Active and expired policies
+- Various coverage types
+- Linked to specific patients
+
+---
+
+## 10. Testing Requirements
+
+### 10.1 Manual Testing via Postman/Curl
+Provide sample curl commands for each endpoint:
+
+**Create Patient**:
+```bash
+curl -X POST http://localhost:8080/api/patients \
+  -H "Content-Type: application/json" \
+  -d '{
+    "firstName": "John",
+    "lastName": "Doe",
+    "dateOfBirth": "1990-05-15",
+    "gender": "Male",
+    "phoneNumber": "+919876543210",
+    "email": "john.doe@email.com",
+    "address": "123 Main St, Mumbai",
+    "bloodGroup": "O+"
+  }'
+```
+
+### 10.2 Integration Tests
+Test coverage should include:
+- CRUD operations for all entities
+- Relationship validations
+- Business logic calculations (bill amounts, insurance status)
+- Exception scenarios
+- Query methods
+
+---
+
+## 11. Business Rules
+
+### 11.1 Appointment Rules
+1. Cannot book appointment in the past
+2. Doctor must be available
+3. No double-booking (same doctor, overlapping times)
+4. Patient must be active
+5. Appointment can only be completed by doctor
+
+### 11.2 Billing Rules
+1. Bill number must be unique and auto-generated
+2. Net amount = Total - Discount + Tax
+3. Balance = Net - Paid
+4. Status auto-updates based on payment
+5. Overdue if payment pending after due date
+
+### 11.3 Insurance Rules
+1. One patient can have only one active insurance
+2. Status auto-updates based on dates
+3. Cannot delete if linked to bills
+4. Expiry notification 30 days before end date
+
+### 11.4 Patient Rules
+1. Phone and email must be unique
+2. Cannot delete if has pending appointments
+3. Cannot delete if has unpaid bills
+4. Deactivate instead of delete (soft delete)
+
+### 11.5 Doctor Rules
+1. License number must be unique
+2. Cannot delete if has scheduled appointments
+3. Can be marked unavailable temporarily
+4. Consultation fee must be positive
+
+---
+
+## 12. Additional Features
+
+### 12.1 Search & Filter
+- Search patients by name, phone, blood group
+- Search doctors by specialization, department, name
+- Filter appointments by status, date range, doctor, patient
+- Filter bills by status, date range, payment method
+- Filter insurance by provider, status, expiry
+
+### 12.2 Statistics/Reports (Optional Bonus)
+- Total patients registered
+- Appointments by status
+- Revenue by date range
+- Most visited doctors
+- Pending bills amount
+- Insurance coverage statistics
+
+### 12.3 Audit Fields
+All entities should track:
+- `createdAt`: When record was created
+- `updatedAt`: When record was last modified
+- `createdBy`: Who created (future enhancement)
+- `updatedBy`: Who modified (future enhancement)
+
+---
+
+## 13. Development Guidelines for Windsurf
+
+### 13.1 Code Quality Standards
+- Follow Spring Boot best practices
+- Use proper naming conventions
+- Add meaningful comments
+- Implement proper exception handling
+- Use DTOs for API contracts
+- Separate concerns (Controller → Service → Repository)
+
+### 13.2 Entity Design
+- Use proper JPA annotations
+- Define cascade operations carefully
+- Use FetchType.LAZY for relationships
+- Add validation annotations
+- Implement equals() and hashCode() for entities
+
+### 13.3 Service Layer
+- Keep business logic in service layer
+- Make services transactional where needed
+- Handle all business validations
+- Convert entities to DTOs
+
+### 13.4 Controller Layer
+- Use proper HTTP status codes
+- Implement RESTful principles
+- Return ResponseEntity with appropriate status
+- Handle request validation
+- Use @Valid for DTO validation
+
+### 13.5 Repository Layer
+- Extend JpaRepository
+- Create custom query methods using naming conventions
+- Use @Query for complex queries
+- Keep repositories thin
+
+---
+
+## 14. Deliverables Checklist
+
+### Phase 1: Core Setup
+- [ ] Project structure created
+- [ ] All dependencies configured
+- [ ] Application properties set up
+- [ ] H2 console accessible
+
+### Phase 2: Entities & Repositories
+- [ ] All 5 entities created with proper annotations
+- [ ] Relationships configured
+- [ ] All 5 repositories created
+- [ ] Custom query methods added
+
+### Phase 3: Service Layer
+- [ ] All 5 service classes implemented
+- [ ] Business logic implemented
+- [ ] Validation logic added
+- [ ] Exception handling added
+
+### Phase 4: Controller Layer
+- [ ] All 5 controllers created
+- [ ] All REST endpoints implemented
+- [ ] Request/Response DTOs created
+- [ ] Proper HTTP status codes used
+
+### Phase 5: Exception Handling
+- [ ] Global exception handler created
+- [ ] Custom exceptions defined
+- [ ] Error response format standardized
+
+### Phase 6: Sample Data
+- [ ] DataInitializer created
+- [ ] Sample data for all entities
+- [ ] Realistic relationships established
+
+### Phase 7: Testing
+- [ ] Application runs successfully
+- [ ] All endpoints testable via Postman
+- [ ] Sample data loads correctly
+- [ ] H2 console shows data
+
+---
+
+## 15. API Testing Guide
+
+### 15.1 Postman Collection Structure
+Create collections for:
+1. Patient Management (11 requests)
+2. Doctor Management (10 requests)
+3. Appointment Management (11 requests)
+4. Bill Management (11 requests)
+5. Insurance Management (10 requests)
+
+### 15.2 Test Scenarios
+**Scenario 1**: Complete Patient Journey
+1. Create patient
+2. Create insurance for patient
+3. Find available doctor
+4. Book appointment
+5. Complete appointment
+6. Generate bill
+7. Make payment
+
+**Scenario 2**: Doctor Scheduling
+1. Get doctor's appointments
+2. Find available time slots
+3. Book multiple appointments
+4. Update appointment status
+
+**Scenario 3**: Billing & Insurance
+1. Create bill for appointment
+2. Link insurance claim
+3. Make partial payment
+4. Complete payment
+5. Check payment status
+
+---
+
+## 16. Success Criteria
+
+The POC is considered complete when:
+1. ✅ All 5 entities are properly created with relationships
+2. ✅ All repositories have CRUD + custom query methods
+3. ✅ All services implement business logic
+4. ✅ All controllers expose REST endpoints
+5. ✅ Global exception handling is implemented
+6. ✅ Validation works on all entities
+7. ✅ Sample data loads successfully
+8. ✅ All endpoints are testable via Postman
+9. ✅ H2 console shows proper data structure
+10. ✅ Application runs without errors
+
+---
+
+## 17. Windsurf Cascade Instructions
+
+### 17.1 Initial Prompt for Cascade
+```
+Create a Hospital Management System with Spring Boot following this structure:
+
+1. Create 5 entities: Patient, Doctor, Appointment, Bill, Insurance
+2. Implement proper JPA relationships
+3. Create repositories with custom query methods
+4. Implement service layer with business logic
+5. Create REST controllers with all CRUD operations
+6. Add global exception handling
+7. Create sample data initializer
+8. Configure H2 database
+
+Follow professional Spring Boot architecture with proper layering.
+```
+
+### 17.2 Incremental Development Steps
+Ask Windsurf to develop in this order:
+1. **Step 1**: Setup project structure and entities
+2. **Step 2**: Create repositories
+3. **Step 3**: Implement services
+4. **Step 4**: Create controllers
+5. **Step 5**: Add exception handling
+6. **Step 6**: Create sample data
+7. **Step 7**: Test all endpoints
+
+### 17.3 Validation Points
+After each step, verify:
+- Code compiles without errors
+- Proper annotations used
+- Naming conventions followed
+- Relationships correctly defined
+- Business logic implemented
+
+---
+
+## 18. Expected File Count
+
+**Total Files**: ~35-40 files
+
+**Breakdown**:
+- Entities: 5 files
+- Repositories: 5 files
+- Services: 5 files (+ 5 interfaces)
+- Controllers: 5 files
+- DTOs: 5 files
+- Exceptions: 3 files
+- Config: 2 files
+- Main class: 1 file
+- Properties: 1 file
+- Tests: 6+ files
+
+---
+
+## 19. Demo Presentation Flow
+
+### For Windsurf Training:
+
+**Demo 1**: Show Entity Creation
+- Display how Cascade created all entities with proper relationships
+- Show JPA annotations and validation
+
+**Demo 2**: Show Repository Layer
+- Display custom query methods
+- Show Spring Data JPA magic
+
+**Demo 3**: Show Service Layer
+- Display business logic implementation
+- Show transaction management
+
+**Demo 4**: Show REST APIs
+- Test CRUD operations via Postman
+- Show relationship handling
+
+**Demo 5**: Show Exception Handling
+- Trigger validation errors
+- Show consistent error responses
+
+**Demo 6**: Show Complete Flow
+- Patient registration → Appointment → Billing → Payment
+
+---
+
+## 20. Notes for Implementation
+
+### Important Considerations:
+1. **Use H2 database** - Easy for POC, no external setup needed
+2. **Enable H2 console** - For data verification during demo
+3. **Add sample data** - Makes demo more realistic
+4. **Use Lombok** (optional) - Reduces boilerplate code
+5. **Keep it simple** - Focus on functionality, not complex features
+6. **Document well** - Add comments for training purposes
+7. **Use standard ports** - 8080 for easy access
+8. **Test thoroughly** - Ensure all endpoints work before demo
+
+### Common Pitfalls to Avoid:
+- Don't create circular dependencies in relationships
+- Use FetchType.LAZY to avoid performance issues
+- Implement proper cascade operations
+- Handle bidirectional relationships carefully
+- Don't forget @JsonIgnore on back-references
+- Validate all inputs
+- Use DTOs to avoid infinite recursion
+
+---
+
+## 21. Quick Start Commands
+
+```bash
+# Build the project
+mvn clean install
+
+# Run the application
+mvn spring-boot:run
+
+# Access H2 Console
+http://localhost:8080/h2-console
+
+# Test API endpoints
+http://localhost:8080/api/patients
+http://localhost:8080/api/doctors
+http://localhost:8080/api/appointments
+http://localhost:8080/api/bills
+http://localhost:8080/api/insurance
+```
+
+---
+
+**Document Version**: 1.0  
+**Last Updated**: November 17, 2025  
+**Target Audience**: Windsurf Cascade AI Development  
+**Complexity Level**: Professional POC  
+**Estimated Development Time**: 2-3 hours with Cascade
