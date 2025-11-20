@@ -132,7 +132,8 @@ public class DataInitializer implements CommandLineRunner {
         List<Bill> bills = new ArrayList<>();
         for (int i = 1; i <= 10; i++) {
             Patient p = patients.get(random.nextInt(patients.size()));
-            Appointment a = appointments.get(random.nextInt(appointments.size()));
+            // Ensure each seeded bill is linked to a unique appointment to satisfy the one-to-one constraint
+            Appointment a = appointments.get(i - 1);
             Bill b = new Bill();
             b.setPatient(p);
             b.setAppointment(a);
