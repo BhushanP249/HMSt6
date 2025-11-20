@@ -1,0 +1,179 @@
+@startuml
+skinparam packageStyle rectangle
+skinparam classAttributeIconSize 0
+
+package "com.citiustech.HospitalManagement.entity" {
+  abstract class BaseEntity {
+    + Long id
+    + LocalDateTime createdAt
+    + LocalDateTime updatedAt
+  }
+
+  class Patient extends BaseEntity {
+    + String firstName
+    + String lastName
+    + LocalDate dateOfBirth
+    + String gender
+    + String phoneNumber
+    + String email
+    + String address
+    + String bloodGroup
+    + String medicalHistory
+    + String allergies
+    + String emergencyContactName
+    + String emergencyContactPhone
+    + LocalDate registrationDate
+    + boolean active
+  }
+
+  class Doctor extends BaseEntity {
+    + String firstName
+    + String lastName
+    + String specialization
+    + String licenseNumber
+    + String phoneNumber
+    + String email
+    + Integer yearsOfExperience
+    + String qualification
+    + String department
+    + String consultationHours
+    + Double consultationFee
+    + LocalDate joiningDate
+    + boolean available
+  }
+
+  class Appointment extends BaseEntity {
+    + LocalDateTime appointmentDateTime
+    + String reason
+    + AppointmentStatus status
+    + String notes
+    + String diagnosis
+    + String prescription
+  }
+
+  class Bill extends BaseEntity {
+    + String billNumber
+    + LocalDate billDate
+    + Double totalAmount
+    + Double discount
+    + Double tax
+    + Double netAmount
+    + Double paidAmount
+    + Double balanceAmount
+    + PaymentStatus paymentStatus
+    + String paymentMethod
+    + String description
+    + String insuranceClaim
+    + LocalDate dueDate
+  }
+
+  class Insurance extends BaseEntity {
+    + String provider
+    + String policyNumber
+    + LocalDate startDate
+    + LocalDate endDate
+    + String coverageType
+    + Double coverageAmount
+    + Double premiumAmount
+    + String paymentFrequency
+    + Double coPayAmount
+    + Double deductibleAmount
+    + String coverageDetails
+    + String exclusions
+    + boolean active
+    + InsuranceStatus status
+  }
+
+  enum AppointmentStatus
+  enum PaymentStatus
+  enum InsuranceStatus
+}
+
+package "com.citiustech.HospitalManagement.repository" {
+  interface PatientRepository
+  interface DoctorRepository
+  interface AppointmentRepository
+  interface BillRepository
+  interface InsuranceRepository
+}
+
+package "com.citiustech.HospitalManagement.service" {
+  interface PatientService
+  interface DoctorService
+  interface AppointmentService
+  interface BillService
+  interface InsuranceService
+}
+
+package "com.citiustech.HospitalManagement.service.impl" {
+  class PatientServiceImpl
+  class DoctorServiceImpl
+  class AppointmentServiceImpl
+  class BillServiceImpl
+  class InsuranceServiceImpl
+}
+
+package "com.citiustech.HospitalManagement.controller" {
+  class PatientController
+  class DoctorController
+  class AppointmentController
+  class BillController
+  class InsuranceController
+}
+
+' Inheritance
+Patient --|> BaseEntity
+Doctor --|> BaseEntity
+Appointment --|> BaseEntity
+Bill --|> BaseEntity
+Insurance --|> BaseEntity
+
+' Entity relationships (JPA mappings)
+Patient "1" o-- "0..*" Appointment : patient
+Doctor  "1" o-- "0..*" Appointment : doctor
+Patient "1" o-- "0..*" Bill        : patient
+Appointment "0..1" o-- "0..1" Bill : appointment
+Patient "1" o-- "0..1" Insurance   : patient
+
+' Repository targets (manages)
+PatientRepository --> Patient
+DoctorRepository --> Doctor
+AppointmentRepository --> Appointment
+BillRepository --> Bill
+InsuranceRepository --> Insurance
+
+' Service realizations
+PatientServiceImpl -|> PatientService
+DoctorServiceImpl -|> DoctorService
+AppointmentServiceImpl -|> AppointmentService
+BillServiceImpl -|> BillService
+InsuranceServiceImpl -|> InsuranceService
+
+' Service -> Repository dependencies
+PatientServiceImpl --> PatientRepository
+PatientServiceImpl --> AppointmentRepository
+PatientServiceImpl --> BillRepository
+PatientServiceImpl --> InsuranceRepository
+
+DoctorServiceImpl --> DoctorRepository
+DoctorServiceImpl --> AppointmentRepository
+
+AppointmentServiceImpl --> AppointmentRepository
+AppointmentServiceImpl --> PatientRepository
+AppointmentServiceImpl --> DoctorRepository
+
+BillServiceImpl --> BillRepository
+BillServiceImpl --> PatientRepository
+BillServiceImpl --> AppointmentRepository
+
+InsuranceServiceImpl --> InsuranceRepository
+InsuranceServiceImpl --> PatientRepository
+InsuranceServiceImpl --> BillRepository
+
+' Controller -> Service dependencies
+PatientController ..> PatientService
+DoctorController ..> DoctorService
+AppointmentController ..> AppointmentService
+BillController ..> BillService
+InsuranceController ..> InsuranceService
+@enduml
