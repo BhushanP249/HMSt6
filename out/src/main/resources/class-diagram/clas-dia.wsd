@@ -1,0 +1,249 @@
+@startuml
+title Hospital Management System - Class Diagram
+
+' Optional skinning
+skinparam packageStyle rectangle
+skinparam classAttributeIconSize 0
+
+'========================
+' Packages
+'========================
+package "com.citiustech.HospitalManagement.entity" as entity {
+    class BaseEntity {
+        - Long id
+        - LocalDateTime createdAt
+        - LocalDateTime updatedAt
+    }
+
+    class Patient {
+        String firstName
+        String lastName
+        LocalDate dateOfBirth
+        String gender
+        String phoneNumber
+        String email
+        String address
+        String bloodGroup
+        String medicalHistory
+        String allergies
+        String emergencyContactName
+        String emergencyContactPhone
+        LocalDate registrationDate
+        boolean active
+    }
+
+    class Doctor {
+        String firstName
+        String lastName
+        String specialization
+        String licenseNumber
+        String phoneNumber
+        String email
+        Integer yearsOfExperience
+        String qualification
+        String department
+        String consultationHours
+        Double consultationFee
+        LocalDate joiningDate
+        boolean available
+    }
+
+    class Appointment {
+        LocalDateTime appointmentDateTime
+        String reason
+        AppointmentStatus status
+        String notes
+        String diagnosis
+        String prescription
+    }
+
+    class Bill {
+        String billNumber
+        LocalDate billDate
+        Double totalAmount
+        Double discount
+        Double tax
+        Double netAmount
+        Double paidAmount
+        Double balanceAmount
+        PaymentStatus paymentStatus
+        String paymentMethod
+        String description
+        String insuranceClaim
+        LocalDate dueDate
+    }
+
+    class Insurance {
+        String provider
+        String policyNumber
+        LocalDate startDate
+        LocalDate endDate
+        String coverageType
+        Double coverageAmount
+        Double premiumAmount
+        String paymentFrequency
+        Double coPayAmount
+        Double deductibleAmount
+        String coverageDetails
+        String exclusions
+        boolean active
+        InsuranceStatus status
+    }
+
+    enum AppointmentStatus {
+        SCHEDULED
+        CONFIRMED
+        IN_PROGRESS
+        COMPLETED
+        CANCELLED
+        NO_SHOW
+    }
+
+    enum PaymentStatus {
+        PENDING
+        PARTIALLY_PAID
+        PAID
+        OVERDUE
+    }
+
+    enum InsuranceStatus {
+        ACTIVE
+        EXPIRED
+        CANCELLED
+        PENDING
+    }
+}
+
+' Inheritance from BaseEntity
+entity.Patient    --|> entity.BaseEntity
+entity.Doctor     --|> entity.BaseEntity
+entity.Appointment --|> entity.BaseEntity
+entity.Bill       --|> entity.BaseEntity
+entity.Insurance  --|> entity.BaseEntity
+
+'========================
+' Relationships between entities
+'========================
+' Patient - Appointment (1..* appointments)
+entity.Patient "1" o-- "0..*" entity.Appointment : appointments
+
+' Doctor - Appointment (1..* appointments)
+entity.Doctor "1" o-- "0..*" entity.Appointment : appointments
+
+' Patient - Bill (1..* bills)
+entity.Patient "1" o-- "0..*" entity.Bill : bills
+
+' Appointment - Bill (0..1)
+entity.Appointment "0..1" o-- "0..1" entity.Bill : bill
+
+' Patient - Insurance (1 - 0..1)
+entity.Patient "1" o-- "0..1" entity.Insurance : insurance
+
+' Bill - PaymentStatus
+entity.Bill --> entity.PaymentStatus
+
+' Insurance - InsuranceStatus
+entity.Insurance --> entity.InsuranceStatus
+
+' Appointment - AppointmentStatus
+entity.Appointment --> entity.AppointmentStatus
+
+
+'========================
+' DTOs
+'========================
+package "com.citiustech.HospitalManagement.dto" as dto {
+    class PatientDto        <<DTO>>
+    class DoctorDto         <<DTO>>
+    class AppointmentDto    <<DTO>>
+    class BillDto           <<DTO>>
+    class InsuranceDto      <<DTO>>
+}
+
+' Simple mapping relationships (conceptual)
+dto.PatientDto    ..> entity.Patient
+dto.DoctorDto     ..> entity.Doctor
+dto.AppointmentDto ..> entity.Appointment
+dto.BillDto       ..> entity.Bill
+dto.InsuranceDto  ..> entity.Insurance
+
+
+'========================
+' Repositories
+'========================
+package "com.citiustech.HospitalManagement.repository" as repo {
+    interface PatientRepository        <<Repository>>
+    interface DoctorRepository         <<Repository>>
+    interface AppointmentRepository    <<Repository>>
+    interface BillRepository           <<Repository>>
+    interface InsuranceRepository      <<Repository>>
+}
+
+repo.PatientRepository     ..> entity.Patient
+repo.DoctorRepository      ..> entity.Doctor
+repo.AppointmentRepository ..> entity.Appointment
+repo.BillRepository        ..> entity.Bill
+repo.InsuranceRepository   ..> entity.Insurance
+
+
+'========================
+' Services
+'========================
+package "com.citiustech.HospitalManagement.service" as service {
+    interface PatientService       <<Service>>
+    interface DoctorService        <<Service>>
+    interface AppointmentService   <<Service>>
+    interface BillService          <<Service>>
+    interface InsuranceService     <<Service>>
+
+    package impl {
+        class PatientServiceImpl       <<Service>>
+        class DoctorServiceImpl        <<Service>>
+        class AppointmentServiceImpl   <<Service>>
+        class BillServiceImpl          <<Service>>
+        class InsuranceServiceImpl     <<Service>>
+    }
+}
+
+' Service implementations implement interfaces
+service.impl.PatientServiceImpl     ..|> service.PatientService
+service.impl.DoctorServiceImpl      ..|> service.DoctorService
+service.impl.AppointmentServiceImpl ..|> service.AppointmentService
+service.impl.BillServiceImpl        ..|> service.BillService
+service.impl.InsuranceServiceImpl   ..|> service.InsuranceService
+
+' Services use repositories
+service.PatientService       ..> repo.PatientRepository
+service.DoctorService        ..> repo.DoctorRepository
+service.AppointmentService   ..> repo.AppointmentRepository
+service.BillService          ..> repo.BillRepository
+service.InsuranceService     ..> repo.InsuranceRepository
+
+
+'========================
+' Controllers
+'========================
+package "com.citiustech.HospitalManagement.controller" as controller {
+    class PatientController      <<RestController>>
+    class DoctorController       <<RestController>>
+    class AppointmentController  <<RestController>>
+    class BillController         <<RestController>>
+    class InsuranceController    <<RestController>>
+    class HomeController         <<Controller>>
+}
+
+' Controllers depend on services
+controller.PatientController      ..> service.PatientService
+controller.DoctorController       ..> service.DoctorService
+controller.AppointmentController  ..> service.AppointmentService
+controller.BillController         ..> service.BillService
+controller.InsuranceController    ..> service.InsuranceService
+
+' Controllers use DTOs
+controller.PatientController      ..> dto.PatientDto
+controller.DoctorController       ..> dto.DoctorDto
+controller.AppointmentController  ..> dto.AppointmentDto
+controller.BillController         ..> dto.BillDto
+controller.InsuranceController    ..> dto.InsuranceDto
+
+@enduml

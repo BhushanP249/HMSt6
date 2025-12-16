@@ -21,10 +21,6 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-import com.citiustech.HospitalManagement.entity.Patient;
-import com.citiustech.HospitalManagement.entity.Doctor;
-import com.citiustech.HospitalManagement.entity.Bill;
-
 @Entity
 @Table(name = "appointments")
 @Getter

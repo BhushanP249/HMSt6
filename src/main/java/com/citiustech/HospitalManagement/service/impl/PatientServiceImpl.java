@@ -74,6 +74,19 @@ public class PatientServiceImpl implements PatientService {
         return toDto(saved);
     }
 
+    /**
+     * Deletes a patient by id after validating business constraints and performs a soft delete.
+     *
+     * Preconditions:
+     * - No pending appointments in statuses SCHEDULED, CONFIRMED, or IN_PROGRESS
+     * - No unpaid bills (only PAID or CANCELLED are allowed)
+     *
+     * Side effects: Sets the patient's active flag to false instead of hard-deleting the record.
+     *
+     * @param id the patient identifier
+     * @throws com.citiustech.HospitalManagement.exception.ResourceNotFoundException if the patient does not exist
+     * @throws com.citiustech.HospitalManagement.exception.BusinessException if pending appointments or unpaid bills exist
+     */
     @Override
     public void deletePatient(Long id) {
         Patient patient = getPatientEntity(id);

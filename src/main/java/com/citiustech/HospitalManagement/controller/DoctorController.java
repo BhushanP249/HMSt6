@@ -3,7 +3,6 @@ package com.citiustech.HospitalManagement.controller;
 import com.citiustech.HospitalManagement.dto.DoctorDto;
 import com.citiustech.HospitalManagement.entity.Appointment;
 import com.citiustech.HospitalManagement.service.DoctorService;
-import jakarta.validation.constraints.NotBlank;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -17,7 +16,6 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
