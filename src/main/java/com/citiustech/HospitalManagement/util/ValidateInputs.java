@@ -1,6 +1,7 @@
 package com.citiustech.HospitalManagement.util;
 
 import java.time.LocalDate;
+import java.time.Period;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.Objects;
@@ -28,6 +29,12 @@ public final class ValidateInputs {
 
     private static final Pattern PHONE_PATTERN = Pattern.compile(
             "^\\+?[0-9 .\\n\\t\\-()]{7,20}$");
+
+    /** Minimum allowed patient age in years (inclusive). */
+    public static final int MIN_PATIENT_AGE = 10;
+
+    /** Maximum allowed patient age in years (inclusive). */
+    public static final int MAX_PATIENT_AGE = 100;
 
     private ValidateInputs() {
         throw new AssertionError("Do not instantiate utility class");
@@ -220,6 +227,53 @@ public final class ValidateInputs {
             log.warn(message);
             throw new IllegalArgumentException(message);
         }
+    }
+
+    /**
+     * Checks whether the given age (in years) falls within the allowed patient
+     * range of {@link #MIN_PATIENT_AGE} to {@link #MAX_PATIENT_AGE}, inclusive.
+     *
+     * @param age the age in years to check
+     * @return true when age is non-null and between 10 and 100 (inclusive)
+     */
+    public static boolean isValidPatientAge(Integer age) {
+        return age != null && age >= MIN_PATIENT_AGE && age <= MAX_PATIENT_AGE;
+    }
+
+    /**
+     * Ensures the given age (in years) is within the allowed patient range of
+     * {@link #MIN_PATIENT_AGE} to {@link #MAX_PATIENT_AGE}, inclusive.
+     *
+     * @param age the age in years to validate
+     * @param fieldName field name for error context
+     * @throws IllegalArgumentException when age is null or outside the allowed range
+     */
+    public static void requireValidPatientAge(Integer age, String fieldName) {
+        if (!isValidPatientAge(age)) {
+            String message = String.format("%s must be between %d and %d years",
+                    fieldName, MIN_PATIENT_AGE, MAX_PATIENT_AGE);
+            log.warn(message);
+            throw new IllegalArgumentException(message);
+        }
+    }
+
+    /**
+     * Ensures the patient's age, derived from their date of birth, is within the
+     * allowed range of {@link #MIN_PATIENT_AGE} to {@link #MAX_PATIENT_AGE}, inclusive.
+     *
+     * @param dateOfBirth the patient's date of birth
+     * @param fieldName field name for error context
+     * @throws IllegalArgumentException when dateOfBirth is null, in the future,
+     *         or yields an age outside the allowed range
+     */
+    public static void requireValidPatientAge(LocalDate dateOfBirth, String fieldName) {
+        if (dateOfBirth == null || dateOfBirth.isAfter(LocalDate.now())) {
+            String message = fieldName + " must be a valid date of birth in the past";
+            log.warn(message);
+            throw new IllegalArgumentException(message);
+        }
+        int age = Period.between(dateOfBirth, LocalDate.now()).getYears();
+        requireValidPatientAge(age, fieldName);
     }
 
     /**
